@@ -113,7 +113,7 @@ class AnimateFromCoeff():
 
         return checkpoint['epoch']
 
-    def generate(self, x, video_save_dir, pic_path, crop_info, restorer_model, enhancer_model, enhancer_region):
+    def generate(self, x, video_save_dir, pic_path, crop_info, restorer_model, enhancer_model, enhancer_region, bg_img=''):
         source_image = x['source_image']
         source_semantics = x['source_semantics'].type(torch.FloatTensor)
         target_semantics = x['target_semantics_list'].type(torch.FloatTensor)
@@ -166,7 +166,7 @@ class AnimateFromCoeff():
         return_path = full_video_path
         tmp_path, new_audio_path = paste_pic(path, pic_path, crop_info, new_audio_path,
                                              full_video_path, restorer_model, enhancer_model,
-                                             enhancer_region)
+                                             enhancer_region, bg_img)
         print(f'The generated video is named {video_save_dir}/{video_name_full}')
 
         return tmp_path, new_audio_path, return_path

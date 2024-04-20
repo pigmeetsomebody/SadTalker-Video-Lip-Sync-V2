@@ -47,7 +47,7 @@ class SimpleWrapperV2(nn.Module):
             )
 
         #### load the pre-trained audio_encoder 
-        #self.audio_encoder = self.audio_encoder.to(device)  
+        #self.audio_encoder = self.audio_encoder.to(device)
         '''
         wav2lip_state_dict = torch.load('/apdcephfs_cq2/share_1290939/wenxuazhang/checkpoints/wav2lip.pth')['state_dict']
         state_dict = self.audio_encoder.state_dict()

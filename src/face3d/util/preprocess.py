@@ -1,6 +1,7 @@
 """This script contains the image preprocessing code for Deep3DFaceRecon_pytorch
 """
-
+import os, sys
+sys.path.append('./venv/lib/python3.9/site-packages')
 import numpy as np
 from scipy.io import loadmat
 from PIL import Image
@@ -98,6 +99,6 @@ def align_img(img, lm, lm3D, mask=None, target_size=224., rescale_factor=102.):
 
     # processing the image
     img_new, lm_new, mask_new = resize_n_crop_img(img, lm, t, s, target_size=target_size, mask=mask)
-    trans_params = np.array([w0, h0, s, t[0], t[1]])
+    trans_params = np.array([w0, h0, s, t[0][0], t[1][0]])
 
     return trans_params, img_new, lm_new, mask_new

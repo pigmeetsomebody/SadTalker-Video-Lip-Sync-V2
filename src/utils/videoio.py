@@ -21,7 +21,6 @@ def save_video_with_watermark(video, audio, save_path, watermark=False):
     temp_file = str(uuid.uuid4())+'.mp4'
     cmd = r'ffmpeg -y -i "%s" -i "%s" -vcodec copy "%s"' % (video, audio, temp_file)
     os.system(cmd)
-
     if watermark is False:
         shutil.move(temp_file, save_path)
     else:

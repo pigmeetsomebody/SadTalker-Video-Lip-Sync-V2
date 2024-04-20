@@ -1,8 +1,11 @@
+import math
+import os, sys
+sys.path.append('./venv/lib/python3.9/site-packages')
 import torch
 from time import strftime
-import os, sys
 from argparse import ArgumentParser
-from src.utils.preprocess import CropAndExtract
+from src.utils.preprocess import CropAndExtract, pasteAndAddFrame
+from src.utils.audio import get_wav_duration
 from src.test_audio2coeff import Audio2Coeff
 from src.facerender.animate import AnimateFromCoeff
 from src.generate_batch import get_data
@@ -15,6 +18,7 @@ warnings.filterwarnings("ignore")
 
 
 def main(args):
+    bg_path = args.bg_img
     pic_path = args.source_video
     audio_path = args.driven_audio
     enhancer_region = args.enhancer
@@ -25,6 +29,8 @@ def main(args):
     current_code_path = sys.argv[0]
     current_root_path = os.path.split(current_code_path)[0]
     os.environ['TORCH_HOME'] = os.path.join(current_root_path, args.checkpoint_dir)
+    target_duration = math.ceil(get_wav_duration(audio_path))
+    extented_pic_path = pasteAndAddFrame(pic_path, target_duration)
 
     path_of_lm_croper = os.path.join(current_root_path, args.checkpoint_dir, 'shape_predictor_68_face_landmarks.dat')
     path_of_net_recon_model = os.path.join(current_root_path, args.checkpoint_dir, 'epoch_20.pth')
@@ -64,7 +70,7 @@ def main(args):
     first_frame_dir = os.path.join(save_dir, 'first_frame_dir')
     os.makedirs(first_frame_dir, exist_ok=True)
     print('3DMM Extraction for source image')
-    first_coeff_path, crop_pic_path, crop_info = preprocess_model.generate(pic_path, first_frame_dir)
+    first_coeff_path, crop_pic_path, crop_info = preprocess_model.generate(extented_pic_path, first_frame_dir)
     if first_coeff_path is None:
         print("Can't get the coeffs of the input")
         return
@@ -73,8 +79,8 @@ def main(args):
     coeff_path = audio_to_coeff.generate(batch, save_dir)
     # coeff2video
     data = get_facerender_data(coeff_path, crop_pic_path, first_coeff_path, audio_path, batch_size, device)
-    tmp_path, new_audio_path, return_path = animate_from_coeff.generate(data, save_dir, pic_path, crop_info,
-                                                                        restorer_model, enhancer_model, enhancer_region)
+    tmp_path, new_audio_path, return_path = animate_from_coeff.generate(data, save_dir, extented_pic_path, crop_info,
+                                                                        restorer_model, enhancer_model, enhancer_region, bg_path)
     torch.cuda.empty_cache()
     if args.use_DAIN:
         import paddle
@@ -93,14 +99,14 @@ def main(args):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument("--driven_audio", default='./examples/driven_audio/bus_chinese.wav',
+    parser.add_argument("--driven_audio", default='./examples/driven_audio/pyrimid.wav',
                         help="path to driven audio")
-    parser.add_argument("--source_video", default='./examples/source_image/input.mp4',
+    parser.add_argument("--source_video", default='./examples/driven_video/test16.mp4',
                         help="path to source video")
     parser.add_argument("--checkpoint_dir", default='./checkpoints', help="path to output")
     parser.add_argument("--result_dir", default='./results', help="path to output")
     parser.add_argument("--batch_size", type=int, default=1, help="the batch size of facerender")
-    parser.add_argument("--enhancer", type=str, default='lip', help="enhaner region:[none,lip,face] \
+    parser.add_argument("--enhancer", type=str, default='face', help="enhaner region:[none,lip,face] \
                                                                       none:do not enhance; \
                                                                       lip:only enhance lip region \
                                                                       face: enhance (skin nose eye brow lip) region")
@@ -114,10 +120,20 @@ if __name__ == '__main__':
     parser.add_argument('--time_step', type=float, default=0.5, help='choose the time steps')
     parser.add_argument('--remove_duplicates', action='store_true', default=False,
                         help='whether to remove duplicated frames')
+    #./examples/bg_imgs/bg_test.png
+    parser.add_argument('--bg_img', type=str, default='./examples/bg_imgs/bg_test.png', help='path to background image')
 
     args = parser.parse_args()
     if torch.cuda.is_available() and not args.cpu:
         args.device = "cuda"
     else:
         args.device = "cpu"
+    # driven_audios = ['1.wav', '2.wav', '3.wav', '4.wav']
+    # driven_audio_dir = './examples/driven_audio/output6/'
+    # for audio in driven_audios:
+    #     args.driven_audio = os.path.join(driven_audio_dir, audio)
+    #     print(args.driven_audio)
+    #     main(args)
     main(args)
+
+

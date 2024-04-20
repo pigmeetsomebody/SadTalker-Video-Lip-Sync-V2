@@ -51,7 +51,7 @@ class HTML:
         Parameters:
             ims (str list)   -- a list of image paths
             txts (str list)  -- a list of image names shown on the website
-            links (str list) --  a list of hyperref links; when you click an image, it will redirect you to a new page
+            links (str list) --  a list of hyperref links; when you click an image, it will redirect you to a new pages
         """
         self.t = table(border=1, style="table-layout: fixed;")  # Insert a table
         self.doc.add(self.t)
