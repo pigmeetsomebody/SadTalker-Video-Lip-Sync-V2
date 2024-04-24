@@ -4,9 +4,10 @@ from tqdm import tqdm
 import uuid
 from src.inference_utils import Laplacian_Pyramid_Blending_with_mask
 from src.data_gen.utils.process_image.extract_segment_imgs import extract_img_segment_and_compose_background
+from src.utils.ppt_with_video import paste_ppt_to_video
 
 
-def paste_pic(video_path, pic_path, crop_info, new_audio_path, full_video_path, restorer, enhancer, enhancer_region, background_path=''):
+def paste_pic(video_path, pic_path, crop_info, new_audio_path, full_video_path, restorer, enhancer, enhancer_region, background_path='', ppt_img_folder='', speeches_duration_csv_path=''):
     video_stream_input = cv2.VideoCapture(pic_path)
     full_img_list = []
     while 1:
@@ -75,6 +76,9 @@ def paste_pic(video_path, pic_path, crop_info, new_audio_path, full_video_path, 
             # pic_with_background = np.uint8(cv2.resize(np.clip(pic_with_background, 0, 255), (1920, 1080)))
         out_tmp.write(pic_with_background)
     out_tmp.release()
+    # 粘贴ppt
+    if len(ppt_img_folder) > 0 and len(speeches_duration_csv_path) > 0:
+        tmp_path = paste_ppt_to_video(tmp_path, ppt_img_folder, speeches_duration_csv_path)
     cmd = r'ffmpeg -y -i "%s" -i "%s" -vcodec copy "%s"' % (tmp_path, new_audio_path, full_video_path)
     os.system(cmd)
     # os.remove(tmp_path)

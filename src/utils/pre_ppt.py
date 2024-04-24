@@ -3,17 +3,10 @@ import argparse
 import os
 
 
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Create a video with fade effect using images')
-    parser.add_argument('--pdf_file', default='123.pdf', type=str, help='Path to the video file')
-    parser.add_argument('--save_file', default='output6/imgs/' ,type=str, help='save')
-    args = parser.parse_args()
-
+def process_ppt_to_imgs(pdf_path, save_img_dir):
     # 打开PDF文件
-    pdf_file = args.pdf_file
-    save_file = args.save_file
+    pdf_file = pdf_path
+    save_file = save_img_dir
     pdf_document = fitz.open(pdf_file)
 
     if not os.path.exists(save_file):
@@ -33,3 +26,13 @@ if __name__ == '__main__':
 
     # 关闭PDF文件
     pdf_document.close()
+
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Create a video with fade effect using images')
+    parser.add_argument('--pdf_file', default='1234.pdf', type=str, help='Path to the video file')
+    parser.add_argument('--save_file', default='output6/imgs/' ,type=str, help='save')
+    args = parser.parse_args()
+
+    process_ppt_to_imgs(args.pdf_file, args.save_file)

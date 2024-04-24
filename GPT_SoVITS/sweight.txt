@@ -1,0 +1,1 @@
+SoVITS_weights/AwesomeTTS_e4_s96.pth

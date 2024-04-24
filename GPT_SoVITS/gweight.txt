@@ -1,0 +1,1 @@
+GPT_weights/AwesomeTTS-e10.ckpt

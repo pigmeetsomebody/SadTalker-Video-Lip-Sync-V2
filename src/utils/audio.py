@@ -197,6 +197,7 @@ def readTextWithExcel(csv_path):
             dic[df.iloc[i, 0]] = df.iloc[i, 1]
     print(dic)
     return dic
+
 if __name__ == '__main__':
     # 生成静音音频数据
     # duration = 5  # 时长（秒）

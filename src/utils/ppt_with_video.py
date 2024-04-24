@@ -13,7 +13,7 @@ def calculate_sum(text):
     digit_count = len(re.findall(r'\d', text))
     return chinese_count + english_count + digit_count
 
-def paste_ppt_to_video(video_file, image_folder, duration_csv, save_name):
+def paste_ppt_to_video(video_file, image_folder, duration_csv):
     # 读取视频
     cap = cv2.VideoCapture(video_file)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -28,36 +28,44 @@ def paste_ppt_to_video(video_file, image_folder, duration_csv, save_name):
     # 计算每个图片应该持续的帧数 (后续根据文本修改)
     # frames_per_image = int(total_frames / num_images)
 
-    data = pd.read_csv('audio_durations_output.csv', sep=',')
+    data = pd.read_csv(duration_csv, sep=',')
     total_duration = sum(data['duration'])
     frames_per_image = []
+    frames_ppt = []
+
+
     for d in data['duration']:
         exp_frame_nums = (int)(total_frames * d / total_duration)
         frames_per_image.append(exp_frame_nums)
-
+    for d in data["audio_name"]:
+        img_path = os.path.join(image_folder, str(d) + '.png')
+        frames_ppt.append(img_path)
 
     # for result in results:
     #     frames_per_image.append((int)(total_frames * result / word_sum))
 
     # 创建视频写入对象
-    output_video = cv2.VideoWriter('output_video_with_fade.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps,
+    result_path = video_file.replace('.mp4', '_with_ppt.mp4')
+    output_video = cv2.VideoWriter(result_path, cv2.VideoWriter_fourcc(*'mp4v'), fps,
                                    (int(cap.get(3)), int(cap.get(4))))
     alpha = 0.9  # 初始透明度
     fade_frames = 5  # 渐变帧数
     video_width = int(cap.get(3))
     video_height = int(cap.get(4))
     frame_num = 0
+
     for i in range(num_images):
-        img = cv2.imread(os.path.join(image_folder, sorted_images[i]))
+        img_path = frames_ppt[i]
+        img = cv2.imread(img_path)
         img_height, img_width = img.shape[:2]
-        img_width = int(video_width * 0.618)
-        img_height = int(img_height * 0.618)
+        resized_img_width = int(video_width * 0.618)
+        resized_img_height = int(resized_img_width * img_height / img_width)
 
         # 调整ppt的大小
-        img_resized = cv2.resize(img, (img_width, img_height))
+        img_resized = cv2.resize(img, (resized_img_width, resized_img_height))
 
         start_frame = int(frame_num)
-        end_frame = int(frame_num + frames_per_image[i])
+        end_frame = int(frame_num +exp_frame_nums)
 
         while frame_num < end_frame:
             ret, frame = cap.read()
@@ -65,13 +73,13 @@ def paste_ppt_to_video(video_file, image_folder, duration_csv, save_name):
                 break
 
             # 计算插入位置，左边居中
-            y_offset = int((frame.shape[0] - img_height) / 2)
-            x_offset = 0
+            y_offset = int((frame.shape[0] - resized_img_height) / 2)
+            x_offset = 20
 
             overlay = frame.copy()
             cv2.addWeighted(img_resized, alpha,
-                            overlay[y_offset:y_offset + int(img_height), x_offset:x_offset + int(img_width)], 1 - alpha,
-                            0, frame[y_offset:y_offset + int(img_height), x_offset:x_offset + int(img_width)])
+                            overlay[y_offset:y_offset + int(resized_img_height), x_offset:x_offset + int(resized_img_width)], 1 - alpha,
+                            0, frame[y_offset:y_offset + int(resized_img_height), x_offset:x_offset + int(resized_img_width)])
 
             output_video.write(frame)
 
@@ -85,31 +93,31 @@ def paste_ppt_to_video(video_file, image_folder, duration_csv, save_name):
 
             overlay = frame.copy()
             cv2.addWeighted(img_resized, 1 - alpha * (j + 1) / fade_frames,
-                            overlay[y_offset:y_offset + int(img_height), x_offset:x_offset + int(img_width)],
+                            overlay[y_offset:y_offset + int(resized_img_height), x_offset:x_offset + int(resized_img_width)],
                             alpha * (j + 1) / fade_frames, 0,
-                            frame[y_offset:y_offset + int(img_height), x_offset:x_offset + int(img_width)])
+                            frame[y_offset:y_offset + int(resized_img_height), x_offset:x_offset + int(resized_img_width)])
 
             output_video.write(frame)
 
     output_video.release()
     cap.release()
     cv2.destroyAllWindows()
+    return result_path
 
 
-
-    video_clip = VideoFileClip('output_video_with_fade.mp4')
-    audio_clip = VideoFileClip(video_file).audio
-    video_clip = video_clip.set_audio(audio_clip)
-
-    # 保存最终的视频文件
-    video_clip.write_videofile(save_name, codec='libx264')
-
-    # 关闭视频和音频文件
-    video_clip.close()
-    audio_clip.close()
-    # 关闭视频和音频文件
-    video_clip.close()
-    audio_clip.close()
+    # video_clip = VideoFileClip('output_video_with_fade.mp4')
+    # audio_clip = VideoFileClip(video_file).audio
+    # video_clip = video_clip.set_audio(audio_clip)
+    #
+    # # 保存最终的视频文件
+    # video_clip.write_videofile(save_name, codec='libx264')
+    #
+    # # 关闭视频和音频文件
+    # video_clip.close()
+    # audio_clip.close()
+    # # 关闭视频和音频文件
+    # video_clip.close()
+    # audio_clip.close()
 
 if __name__ == '__main__':
     # 构建命令行参数解析器
@@ -120,7 +128,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_name', default='sample_with_ppt.mp4', type=str, help='savename')
     args = parser.parse_args()
 
-    paste_ppt_to_video(args.video_file, args.image_folder, args.duration_csv, args.save_name)
+    result_path = paste_ppt_to_video(args.video_file, args.image_folder, args.duration_csv)
 
-    cmd = f'ffmpeg -i {args.video_file} -i {args.save_name} -c:v copy -c:a copy -map 0:a:0 -map 1:v:0 {args.save_name.replace(".mp4", "_full.mp4")}'
-    os.system(cmd)
+    # cmd = f'ffmpeg -i {args.video_file} -i {result_path} -c:v copy -c:a copy -map 0:a:0 -map 1:v:0 {args.save_name.replace(".mp4", "_full.mp4")}'
+    # os.system(cmd)

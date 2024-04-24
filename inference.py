@@ -5,7 +5,7 @@ import torch
 from time import strftime
 from argparse import ArgumentParser
 from src.utils.preprocess import CropAndExtract, pasteAndAddFrame
-from src.utils.audio import get_wav_duration
+from src.utils.audio import get_wav_duration, get_audios_duration_and_save, merge_wav_files
 from src.test_audio2coeff import Audio2Coeff
 from src.facerender.animate import AnimateFromCoeff
 from src.generate_batch import get_data
@@ -13,6 +13,8 @@ from src.generate_facerender_batch import get_facerender_data
 from third_part.GFPGAN.gfpgan import GFPGANer
 from third_part.GPEN.gpen_face_enhancer import FaceEnhancement
 import warnings
+from src.utils.pre_ppt import process_ppt_to_imgs
+
 
 warnings.filterwarnings("ignore")
 
@@ -22,6 +24,7 @@ def main(args):
     pic_path = args.source_video
     audio_path = args.driven_audio
     enhancer_region = args.enhancer
+    ppt_path = args.ppt_path
     save_dir = os.path.join(args.result_dir, strftime("%Y_%m_%d_%H.%M.%S"))
     os.makedirs(save_dir, exist_ok=True)
     device = args.device
@@ -29,8 +32,25 @@ def main(args):
     current_code_path = sys.argv[0]
     current_root_path = os.path.split(current_code_path)[0]
     os.environ['TORCH_HOME'] = os.path.join(current_root_path, args.checkpoint_dir)
-    target_duration = math.ceil(get_wav_duration(audio_path))
+    # 预处理ppt
+    ppt_imgs_folder = os.path.join(save_dir, 'ppt_imgs')
+    os.makedirs(ppt_imgs_folder, exist_ok=True)
+    process_ppt_to_imgs(ppt_path, ppt_imgs_folder)
+
+    # 读取每段音频的时长并合并 （自动换ppt 需要用）
+    speech_durations_output_csv_path = os.path.join(save_dir, 'speech_durations_output.csv')
+    merged_wav_path = os.path.join(save_dir, 'merged.wav')
+    audio_list = [os.path.join(audio_path, audio) for audio in os.listdir(audio_path) if audio.endswith(".wav")]
+    sorted_audio_list = sorted(audio_list)
+    duration_csv_path = os.path.join(save_dir, 'speech_durations_output.csv')
+    get_audios_duration_and_save(sorted_audio_list, duration_csv_path)
+    merge_wav_files(sorted_audio_list, merged_wav_path)
+
+
+    # 计算合成的音频时长
+    target_duration = math.ceil(get_wav_duration(merged_wav_path))
     extented_pic_path = pasteAndAddFrame(pic_path, target_duration)
+
 
     path_of_lm_croper = os.path.join(current_root_path, args.checkpoint_dir, 'shape_predictor_68_face_landmarks.dat')
     path_of_net_recon_model = os.path.join(current_root_path, args.checkpoint_dir, 'epoch_20.pth')
@@ -75,12 +95,14 @@ def main(args):
         print("Can't get the coeffs of the input")
         return
     # audio2ceoff
-    batch = get_data(first_coeff_path, audio_path, device)
+    batch = get_data(first_coeff_path, merged_wav_path, device)
     coeff_path = audio_to_coeff.generate(batch, save_dir)
     # coeff2video
-    data = get_facerender_data(coeff_path, crop_pic_path, first_coeff_path, audio_path, batch_size, device)
+    data = get_facerender_data(coeff_path, crop_pic_path, first_coeff_path, merged_wav_path, batch_size, device)
     tmp_path, new_audio_path, return_path = animate_from_coeff.generate(data, save_dir, extented_pic_path, crop_info,
-                                                                        restorer_model, enhancer_model, enhancer_region, bg_path)
+                                                                        restorer_model, enhancer_model, enhancer_region, bg_path, ppt_imgs_folder, duration_csv_path)
+
+
     torch.cuda.empty_cache()
     if args.use_DAIN:
         import paddle
@@ -95,11 +117,12 @@ def main(args):
         command = r'ffmpeg -y -i "%s" -i "%s" -vcodec copy "%s"' % (temp_video_path, new_audio_path, save_path)
         os.system(command)
     os.remove(tmp_path)
+    os.remove(extented_pic_path)
 
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument("--driven_audio", default='./examples/driven_audio/pyrimid.wav',
+    parser.add_argument("--driven_audio", default='./examples/driven_audio/test_ppt_speech_output',
                         help="path to driven audio")
     parser.add_argument("--source_video", default='./examples/driven_video/test16.mp4',
                         help="path to source video")
@@ -122,6 +145,7 @@ if __name__ == '__main__':
                         help='whether to remove duplicated frames')
     #./examples/bg_imgs/bg_test.png
     parser.add_argument('--bg_img', type=str, default='./examples/bg_imgs/bg_test.png', help='path to background image')
+    parser.add_argument('--ppt_path', type=str, default='./examples/ppt/1234.pdf', help='path to ppt pdf file')
 
     args = parser.parse_args()
     if torch.cuda.is_available() and not args.cpu:
